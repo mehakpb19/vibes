@@ -5,10 +5,9 @@ import { ListMusic, Plus, Play } from 'lucide-react';
 interface PlaylistProps {
   roomId: string;
   queue: any[];
-  isHost: boolean;
 }
 
-const Playlist: React.FC<PlaylistProps> = ({ roomId, queue = [], isHost }) => {
+const Playlist: React.FC<PlaylistProps> = ({ roomId, queue = [] }) => {
   const [newUrl, setNewUrl] = useState('');
 
   const addToQueue = (e: React.FormEvent) => {

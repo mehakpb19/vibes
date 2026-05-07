@@ -281,7 +281,7 @@ const App: React.FC = () => {
           <YouTubePlayer roomId={roomId} roomData={roomData} isHost={isHost} messages={messages} />
         </div>
         <div className="lg:col-span-4 flex flex-col gap-6 h-full">
-          <SidebarTabs roomId={roomId} queue={roomData?.queue} isHost={isHost} />
+          <SidebarTabs roomId={roomId} queue={roomData?.queue} />
           <Chat roomId={roomId} username={username} messages={messages} sessionId={sessionId} />
         </div>
       </main>

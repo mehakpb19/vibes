@@ -5,10 +5,9 @@ import { syncRoom, YOUTUBE_API_KEY } from '../firebase';
 interface SidebarTabsProps {
   roomId: string;
   queue: any[];
-  isHost: boolean;
 }
 
-const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost }) => {
+const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [] }) => {
   const [activeTab, setActiveTab] = useState<'search' | 'queue'>('search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
