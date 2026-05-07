@@ -1,0 +1,26 @@
+﻿# Dependencies
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+out/
+*.log
+
+# Version control & IDE
+.git/
+.svn/
+.vscode/
+.idea/
+
+# Environment and Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Large Media
+*.mp4
+*.zip
+*.exe

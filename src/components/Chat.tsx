@@ -1,22 +1,63 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sendMessage } from '../firebase';
+import { sendMessage, db, ref, onValue, update } from '../firebase';
 import { Send, MessageSquare } from 'lucide-react';
 
 interface ChatProps {
   roomId: string;
   username: string;
   messages: any[];
+  sessionId: string;
 }
 
-const Chat: React.FC<ChatProps> = ({ roomId, username, messages }) => {
+const Chat: React.FC<ChatProps> = ({ roomId, username, messages, sessionId }) => {
   const [input, setInput] = useState('');
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, typingUsers]);
+
+  // Listen for typing users
+  useEffect(() => {
+    const usersRef = ref(db, `rooms/${roomId}/users`);
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      const users = snapshot.val();
+      if (users) {
+        const typing = Object.entries(users)
+          .filter(([id, data]: [string, any]) => id !== sessionId && data.isTyping)
+          .map(([id, data]: [string, any]) => data.username);
+        setTypingUsers(typing);
+      } else {
+        setTypingUsers([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [roomId, sessionId]);
+
+  const updateTypingStatus = (isTyping: boolean) => {
+    const userRef = ref(db, `rooms/${roomId}/users/${sessionId}`);
+    update(userRef, { isTyping });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+
+    // Update typing status
+    updateTypingStatus(true);
+
+    // Clear previous timeout
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    // Set timeout to clear typing status
+    typingTimeoutRef.current = setTimeout(() => {
+      updateTypingStatus(false);
+    }, 2000);
+  };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +67,8 @@ const Chat: React.FC<ChatProps> = ({ roomId, username, messages }) => {
         text: input.trim(),
       });
       setInput('');
+      updateTypingStatus(false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
   };
 
@@ -56,13 +99,27 @@ const Chat: React.FC<ChatProps> = ({ roomId, username, messages }) => {
             </div>
           </div>
         ))}
+        {typingUsers.length > 0 && (
+          <div className="flex items-center gap-2 text-indigo-400/60 animate-pulse ml-1">
+            <div className="flex gap-1">
+              <span className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="w-1 h-1 bg-current rounded-full animate-bounce"></span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider">
+              {typingUsers.length === 1 
+                ? `${typingUsers[0]} is typing...`
+                : `${typingUsers.length} people are typing...`}
+            </span>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSend} className="p-4 border-t border-white/10 bg-white/5 flex gap-2">
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInputChange}
           placeholder="Message..."
           className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
         />

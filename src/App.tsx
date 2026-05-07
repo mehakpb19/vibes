@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, ref, onValue, initializeRoom, syncRoom } from './firebase';
+import { db, ref, onValue, initializeRoom, syncRoom, onDisconnect, remove, set, serverTimestamp } from './firebase';
 import YouTubePlayer from './components/YouTubePlayer';
 import Chat from './components/Chat';
 import SidebarTabs from './components/SidebarTabs';
-import { Users, Tv, Copy, LogOut } from 'lucide-react';
+import { Users, Tv, Copy, LogOut, Circle, Share2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [roomId, setRoomId] = useState('');
@@ -12,27 +12,56 @@ const App: React.FC = () => {
   const [roomData, setRoomData] = useState<any>(null);
   const [isHost, setIsHost] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const sessionId = useRef(Math.random().toString(36).substring(2, 10)).current;
 
-  // Load session from localStorage on mount
+  // Load session and check for URL room ID on mount
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlRoomId = params.get('room');
+    
     const savedRoomId = localStorage.getItem('syncvibe_roomId');
     const savedUsername = localStorage.getItem('syncvibe_username');
     const savedIsHost = localStorage.getItem('syncvibe_isHost') === 'true';
 
-    if (savedRoomId && savedUsername) {
-      setRoomId(savedRoomId);
-      setUsername(savedUsername);
-      setIsHost(savedIsHost);
-      setInRoom(true);
+    // Set Room ID from URL if present
+    if (urlRoomId) {
+      setRoomId(urlRoomId.toUpperCase());
+      // If joining via link, we want them to enter their name fresh
+      // so we don't load the saved username
+    } else {
+      // Normal return: load saved session
+      if (savedRoomId) {
+        setRoomId(savedRoomId);
+      }
+      if (savedUsername) {
+        setUsername(savedUsername);
+      }
+
+      // Auto-join if we have both saved and no new invite
+      if (savedRoomId && savedUsername) {
+        setIsHost(savedIsHost);
+        setInRoom(true);
+        
+        const newUrl = `${window.location.origin}${window.location.pathname}?room=${savedRoomId}`;
+        window.history.replaceState({ path: newUrl }, '', newUrl);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (inRoom && roomId) {
+    if (inRoom && roomId && username) {
       // Save session
       localStorage.setItem('syncvibe_roomId', roomId);
       localStorage.setItem('syncvibe_username', username);
       localStorage.setItem('syncvibe_isHost', isHost.toString());
+
+      // Update URL if not already present
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('room') !== roomId) {
+        const newUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+      }
 
       const roomRef = ref(db, `rooms/${roomId}`);
       const unsubscribeRoom = onValue(roomRef, (snapshot) => {
@@ -50,12 +79,42 @@ const App: React.FC = () => {
         }
       });
 
+      // Presence System - Use unique sessionId to avoid collisions
+      const userPresenceRef = ref(db, `rooms/${roomId}/users/${sessionId}`);
+      const connectedRef = ref(db, '.info/connected');
+
+      const unsubscribeConnected = onValue(connectedRef, (snap) => {
+        if (snap.val() === true) {
+          // Add user to presence list
+          set(userPresenceRef, {
+            username,
+            lastActive: serverTimestamp()
+          });
+          // Remove on disconnect
+          onDisconnect(userPresenceRef).remove();
+        }
+      });
+
+      // Count online users
+      const usersRef = ref(db, `rooms/${roomId}/users`);
+      const unsubscribeUsers = onValue(usersRef, (snapshot) => {
+        const users = snapshot.val();
+        if (users) {
+          setOnlineCount(Object.keys(users).length);
+        } else {
+          setOnlineCount(0);
+        }
+      });
+
       return () => {
         unsubscribeRoom();
         unsubscribeChat();
+        unsubscribeUsers();
+        unsubscribeConnected();
+        remove(userPresenceRef);
       };
     }
-  }, [inRoom, roomId]);
+  }, [inRoom, roomId, username, sessionId]);
 
   const createRoom = () => {
     if (!username.trim()) return alert('Please enter a username');
@@ -84,22 +143,38 @@ const App: React.FC = () => {
     setIsHost(false);
   };
 
-  const copyRoomId = () => {
-    navigator.clipboard.writeText(roomId);
-    alert('Room ID copied to clipboard!');
+  const copyInviteLink = () => {
+    const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+    navigator.clipboard.writeText(inviteUrl);
+    alert('Invite link copied to clipboard!');
   };
 
   const handleLogout = () => {
+    // Explicitly remove presence before logout
+    if (roomId) {
+      const userPresenceRef = ref(db, `rooms/${roomId}/users/${sessionId}`);
+      remove(userPresenceRef);
+    }
     localStorage.removeItem('syncvibe_roomId');
     localStorage.removeItem('syncvibe_username');
     localStorage.removeItem('syncvibe_isHost');
+    
+    // Clear URL
+    const newUrl = window.location.origin + window.location.pathname;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+
     setInRoom(false);
     setRoomId('');
+    setUsername('');
     setRoomData(null);
     setMessages([]);
+    setOnlineCount(0);
   };
 
   if (!inRoom) {
+    const params = new URLSearchParams(window.location.search);
+    const hasInvite = params.has('room');
+
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950">
         <div className="w-full max-w-md p-8 glass-dark rounded-3xl space-y-8 animate-in fade-in zoom-in duration-500">
@@ -124,28 +199,35 @@ const App: React.FC = () => {
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-indigo-500 transition-all text-lg"
               />
             </div>
-            <div className="flex gap-4">
-              <button onClick={createRoom} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95">
-                Create Room
-              </button>
-            </div>
-            <div className="relative flex items-center py-4">
-              <div className="flex-grow border-t border-white/5"></div>
-              <span className="flex-shrink mx-4 text-slate-500 text-xs font-bold uppercase tracking-widest">OR</span>
-              <div className="flex-grow border-t border-white/5"></div>
-            </div>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Enter Room ID"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 focus:outline-none focus:border-indigo-500 transition-all text-center tracking-widest text-lg uppercase"
-              />
-              <button onClick={joinRoom} className="w-full bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl border border-white/10 transition-all active:scale-95">
-                Join Existing Room
-              </button>
-            </div>
+            
+            {hasInvite ? (
+              <div className="space-y-4 pt-2">
+                <div className="p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-center">
+                  <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1">You're Invited to</p>
+                  <p className="text-lg font-mono font-bold text-white tracking-[0.2em]">{roomId}</p>
+                </div>
+                <button onClick={joinRoom} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95 flex items-center justify-center gap-2">
+                  <Users size={20} />
+                  Join Room
+                </button>
+                <button onClick={() => {
+                  const newUrl = window.location.origin + window.location.pathname;
+                  window.history.pushState({ path: newUrl }, '', newUrl);
+                  setRoomId('');
+                }} className="w-full text-slate-500 hover:text-slate-400 text-xs font-bold uppercase tracking-widest transition-colors">
+                  Or Create Your Own Room
+                </button>
+              </div>
+            ) : (
+              <div className="pt-2">
+                <button onClick={createRoom} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95">
+                  Create Room
+                </button>
+                <p className="text-center text-slate-500 text-[10px] mt-6 uppercase tracking-[0.2em] font-bold">
+                  Start a session and share the link to invite friends
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -161,18 +243,25 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-black bg-gradient-to-r from-white to-slate-500 bg-clip-text text-transparent">SyncVibe</h1>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Users size={12} />
-              <span>{roomData?.host}'s Room</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Users size={12} />
+                <span>{roomData?.host}'s Room</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                <Circle size={8} fill="currentColor" />
+                <span>{onlineCount} Online</span>
+              </div>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center bg-black/40 border border-white/5 rounded-xl px-4 py-2 gap-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Room ID:</span>
-            <code className="text-indigo-400 font-mono font-bold tracking-widest">{roomId}</code>
-            <button onClick={copyRoomId} className="hover:text-indigo-400 transition-colors">
-              <Copy size={16} />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Invite:</span>
+            <code className="text-indigo-400 font-mono font-bold tracking-widest hidden sm:inline">{roomId}</code>
+            <button onClick={copyInviteLink} className="flex items-center gap-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 px-3 py-1.5 rounded-lg border border-indigo-500/20 transition-all text-xs font-bold uppercase tracking-wider">
+              <Share2 size={16} />
+              <span className="hidden lg:inline">Copy Invite Link</span>
             </button>
           </div>
           <button onClick={handleLogout} className="p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
@@ -187,7 +276,7 @@ const App: React.FC = () => {
         </div>
         <div className="lg:col-span-4 flex flex-col gap-6 h-full">
           <SidebarTabs roomId={roomId} queue={roomData?.queue} isHost={isHost} />
-          <Chat roomId={roomId} username={username} messages={messages} />
+          <Chat roomId={roomId} username={username} messages={messages} sessionId={sessionId} />
         </div>
       </main>
       <footer className="text-center text-slate-600 text-xs py-4">

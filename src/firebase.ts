@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, onValue, update, push, serverTimestamp } from "firebase/database";
+import { getDatabase, ref, set, onValue, update, push, serverTimestamp, onDisconnect, remove } from "firebase/database";
 
 // Your actual Firebase config keys
 const firebaseConfig = {
@@ -18,7 +18,7 @@ const db = getDatabase(app);
 
 export const YOUTUBE_API_KEY = "AIzaSyA69yTXVIYhXIJQBKSzxb-4oScsIHauXas";
 
-export { db, ref, onValue, update, push, serverTimestamp };
+export { db, ref, onValue, update, push, serverTimestamp, onDisconnect, remove, set };
 
 // Use set() for initial creation to ensure the path exists
 export const initializeRoom = (roomId: string, data: Record<string, any>) => {
