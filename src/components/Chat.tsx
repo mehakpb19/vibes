@@ -13,7 +13,7 @@ const Chat: React.FC<ChatProps> = ({ roomId, username, messages, sessionId }) =>
   const [input, setInput] = useState('');
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<any | null>(null);
 
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -29,7 +29,7 @@ const Chat: React.FC<ChatProps> = ({ roomId, username, messages, sessionId }) =>
       if (users) {
         const typing = Object.entries(users)
           .filter(([id, data]: [string, any]) => id !== sessionId && data.isTyping)
-          .map(([id, data]: [string, any]) => data.username);
+          .map(([_, data]: [string, any]) => data.username);
         setTypingUsers(typing);
       } else {
         setTypingUsers([]);

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, ref, onValue, initializeRoom, syncRoom, onDisconnect, remove, set, serverTimestamp } from './firebase';
+import { db, ref, onValue, initializeRoom, onDisconnect, remove, set, serverTimestamp } from './firebase';
 import YouTubePlayer from './components/YouTubePlayer';
 import Chat from './components/Chat';
 import SidebarTabs from './components/SidebarTabs';
-import { Users, Tv, Copy, LogOut, Circle, Share2 } from 'lucide-react';
+import { Users, Tv, LogOut, Circle, Share2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [roomId, setRoomId] = useState('');
@@ -18,34 +18,40 @@ const App: React.FC = () => {
   // Load session and check for URL room ID on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const urlRoomId = params.get('room');
+    const urlRoomId = params.get('room')?.toUpperCase();
     
     const savedRoomId = localStorage.getItem('syncvibe_roomId');
     const savedUsername = localStorage.getItem('syncvibe_username');
     const savedIsHost = localStorage.getItem('syncvibe_isHost') === 'true';
 
-    // Set Room ID from URL if present
-    if (urlRoomId) {
-      setRoomId(urlRoomId.toUpperCase());
-      // If joining via link, we want them to enter their name fresh
-      // so we don't load the saved username
-    } else {
-      // Normal return: load saved session
-      if (savedRoomId) {
-        setRoomId(savedRoomId);
-      }
-      if (savedUsername) {
-        setUsername(savedUsername);
-      }
+    // Logic:
+    // 1. If there's a room in the URL:
+    //    - If it matches our saved room AND we have a saved username, auto-join (refresh case).
+    //    - Otherwise, show entry screen for that room (new join via link).
+    // 2. If no room in the URL:
+    //    - If we have a saved room and username, auto-join (returning user).
+    //    - Otherwise, if we have a saved username, pre-fill it for room creation.
 
-      // Auto-join if we have both saved and no new invite
-      if (savedRoomId && savedUsername) {
+    if (urlRoomId) {
+      setRoomId(urlRoomId);
+      if (urlRoomId === savedRoomId && savedUsername) {
+        setUsername(savedUsername);
         setIsHost(savedIsHost);
         setInRoom(true);
-        
-        const newUrl = `${window.location.origin}${window.location.pathname}?room=${savedRoomId}`;
-        window.history.replaceState({ path: newUrl }, '', newUrl);
+      } else {
+        // For new rooms via link, we don't auto-fill to ensure they "enter" their name
+        setInRoom(false);
       }
+    } else if (savedRoomId && savedUsername) {
+      setRoomId(savedRoomId);
+      setUsername(savedUsername);
+      setIsHost(savedIsHost);
+      setInRoom(true);
+      
+      const newUrl = `${window.location.origin}${window.location.pathname}?room=${savedRoomId}`;
+      window.history.replaceState({ path: newUrl }, '', newUrl);
+    } else if (savedUsername) {
+      setUsername(savedUsername);
     }
   }, []);
 
@@ -114,7 +120,7 @@ const App: React.FC = () => {
         remove(userPresenceRef);
       };
     }
-  }, [inRoom, roomId, username, sessionId]);
+  }, [inRoom, roomId, username, sessionId, isHost]);
 
   const createRoom = () => {
     if (!username.trim()) return alert('Please enter a username');

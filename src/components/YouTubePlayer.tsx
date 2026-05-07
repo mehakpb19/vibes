@@ -11,7 +11,7 @@ interface PlayerProps {
   messages: any[];
 }
 
-const YouTubePlayer: React.FC<PlayerProps> = ({ roomId, roomData, isHost, messages }) => {
+const YouTubePlayer: React.FC<PlayerProps> = ({ roomId, roomData, messages }) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -49,18 +49,8 @@ const YouTubePlayer: React.FC<PlayerProps> = ({ roomId, roomData, isHost, messag
   // Handle auto-fading messages (10 seconds)
   useEffect(() => {
     // Get messages from the last 30 seconds to keep it fresh
-    const now = Date.now();
-    const activeMsgs = messages.filter(msg => {
-        // Since Firebase serverTimestamp might not be immediately available on local,
-        // we use a fallback or handle the fade logic locally
-        return true; 
-    }).slice(-5);
-
+    const activeMsgs = messages.slice(-5);
     setVisibleMessages(activeMsgs);
-
-    // Set a timeout to clear each message after 10s if needed, 
-    // but a simpler way is to just show the most recent ones.
-    // For true "disappearing", we'd need a timestamp on each message.
   }, [messages]);
 
   useEffect(() => {
@@ -115,7 +105,7 @@ const YouTubePlayer: React.FC<PlayerProps> = ({ roomId, roomData, isHost, messag
           playing={playing}
           width="100%"
           height="100%"
-          playsinline={true}
+          playsInline={true}
           controls={true}
           loop={roomData?.loop || false}
           onPlay={handlePlay}          onPause={handlePause}
@@ -133,7 +123,7 @@ const YouTubePlayer: React.FC<PlayerProps> = ({ roomId, roomData, isHost, messag
                 enablejsapi: 1
               }
             }
-          }}
+          } as any}
           />        {/* Floating Controls Overlay */}
         <div className={`absolute inset-0 z-20 pointer-events-none p-4 flex flex-col justify-between transition-opacity duration-300 ${isFullscreen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
           

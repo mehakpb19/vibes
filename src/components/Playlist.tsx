@@ -21,16 +21,7 @@ const Playlist: React.FC<PlaylistProps> = ({ roomId, queue = [], isHost }) => {
   };
 
   const playVideo = (url: string) => {
-    if (isHost) {
-      syncRoom(roomId, { url, playing: true, seekTime: 0 });
-    }
-  };
-
-  const removeFromQueue = (id: string) => {
-    if (isHost) {
-      const updatedQueue = queue.filter(item => item.id !== id);
-      syncRoom(roomId, { queue: updatedQueue });
-    }
+    syncRoom(roomId, { url, playing: true, seekTime: 0 });
   };
 
   return (
@@ -47,7 +38,7 @@ const Playlist: React.FC<PlaylistProps> = ({ roomId, queue = [], isHost }) => {
           </div>
         ) : (
           queue.map((item, i) => (
-            <div key={item.id} className="group relative flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/10">
+            <div key={item.id} className="group relative flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-colors">
               {item.thumbnail ? (
                 <img src={item.thumbnail} alt="" className="w-12 h-8 rounded object-cover" />
               ) : (
@@ -61,14 +52,12 @@ const Playlist: React.FC<PlaylistProps> = ({ roomId, queue = [], isHost }) => {
                 </p>
                 {item.title && <p className="text-[10px] text-slate-500 truncate">{item.url}</p>}
               </div>
-              {isHost && (
-                <button 
-                  onClick={() => playVideo(item.url)}
-                  className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Play size={14} fill="currentColor" />
-                </button>
-              )}
+              <button 
+                onClick={() => playVideo(item.url)}
+                className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Play size={14} fill="currentColor" />
+              </button>
             </div>
           ))
         )}

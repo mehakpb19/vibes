@@ -30,7 +30,7 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
   }, [query]);
 
   const performSearch = async (searchQuery: string) => {
-    if (YOUTUBE_API_KEY === "YOUR_YOUTUBE_API_KEY_HERE") return;
+    if ((YOUTUBE_API_KEY as string) === "YOUR_YOUTUBE_API_KEY_HERE") return;
 
     setLoading(true);
     try {
@@ -61,19 +61,17 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
   };
 
   const instantPlay = (video: any) => {
-    if (isHost) {
-      const videoUrl = `https://www.youtube.com/watch?v=${video.id.videoId}`;
-      syncRoom(roomId, { 
-        url: videoUrl, 
-        playing: true, 
-        seekTime: 0,
-        loop: false // Disable loop for new video
-      });
-    }
+    const videoUrl = `https://www.youtube.com/watch?v=${video.id.videoId}`;
+    syncRoom(roomId, { 
+      url: videoUrl, 
+      playing: true, 
+      seekTime: 0,
+      loop: false // Disable loop for new video
+    });
   };
 
   const fetchPlaylistItems = async (playlistId: string) => {
-    if (YOUTUBE_API_KEY === "YOUR_YOUTUBE_API_KEY_HERE") return;
+    if ((YOUTUBE_API_KEY as string) === "YOUR_YOUTUBE_API_KEY_HERE") return;
     setIsImporting(true);
     try {
       const response = await fetch(
@@ -112,15 +110,13 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
   };
 
   const shuffleQueue = () => {
-    if (!isHost || queue.length < 2) return;
+    if (queue.length < 2) return;
     const shuffled = [...queue].sort(() => Math.random() - 0.5);
     syncRoom(roomId, { queue: shuffled });
   };
 
   const playFromQueue = (url: string) => {
-    if (isHost) {
-      syncRoom(roomId, { url, playing: true, seekTime: 0, loop: false });
-    }
+    syncRoom(roomId, { url, playing: true, seekTime: 0, loop: false });
   };
 
   const removeFromQueue = (id: string, e: React.MouseEvent) => {
@@ -158,7 +154,7 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
           <>
             <div className="px-4 py-2 flex justify-between items-center border-b border-white/5 bg-white/5">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Shared Queue</span>
-                {isHost && queue.length > 1 && (
+                {queue.length > 1 && (
                     <button 
                         onClick={shuffleQueue}
                         className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest bg-indigo-400/10 px-2 py-1 rounded-lg"
@@ -178,7 +174,7 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
                   <div 
                     key={item.id} 
                     onClick={() => playFromQueue(item.url)}
-                    className={`group flex items-center gap-3 p-2 rounded-2xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all ${isHost ? 'cursor-pointer' : ''}`}
+                    className="group flex items-center gap-3 p-2 rounded-2xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all cursor-pointer"
                   >
                     <div className="relative overflow-hidden rounded-lg shrink-0">
                       {item.thumbnail ? (
@@ -188,11 +184,9 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
                           {i + 1}
                         </div>
                       )}
-                      {isHost && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Play size={16} fill="white" className="text-white" />
-                        </div>
-                      )}
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Play size={16} fill="white" className="text-white" />
+                      </div>
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <p className="text-xs text-slate-200 truncate font-bold" dangerouslySetInnerHTML={{ __html: item.title || 'YouTube Video' }} />
@@ -245,7 +239,7 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
                 <div 
                     key={video.id.videoId} 
                     onClick={() => instantPlay(video)}
-                    className={`flex items-center gap-3 p-2 rounded-2xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group ${isHost ? 'cursor-pointer' : ''}`}
+                    className="flex items-center gap-3 p-2 rounded-2xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group cursor-pointer"
                 >
                   <div className="relative overflow-hidden rounded-lg shrink-0">
                     <img 
@@ -253,11 +247,9 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [], isHost })
                       alt="" 
                       className="w-20 h-12 object-cover"
                     />
-                    {isHost && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Play size={20} fill="white" className="text-white" />
-                      </div>
-                    )}
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Play size={20} fill="white" className="text-white" />
+                    </div>
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <p className="text-[13px] text-slate-200 truncate font-bold leading-tight" dangerouslySetInnerHTML={{ __html: video.snippet.title }} />

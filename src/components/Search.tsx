@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search as SearchIcon, Plus, Loader2 } from 'lucide-react';
+import { Search as SearchIcon, Plus, Loader2, Play } from 'lucide-react';
 import { syncRoom, YOUTUBE_API_KEY } from '../firebase';
 
 interface SearchProps {
@@ -15,7 +15,7 @@ const Search: React.FC<SearchProps> = ({ roomId, queue = [] }) => {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
-    if (YOUTUBE_API_KEY === "YOUR_YOUTUBE_API_KEY_HERE") {
+    if ((YOUTUBE_API_KEY as string) === "YOUR_YOUTUBE_API_KEY_HERE") {
         alert("Please provide a valid YouTube API Key in src/firebase.ts");
         return;
     }
@@ -45,9 +45,11 @@ const Search: React.FC<SearchProps> = ({ roomId, queue = [] }) => {
         thumbnail: video.snippet.thumbnails.default.url
     }];
     syncRoom(roomId, { queue: updatedQueue });
-    // Optional: clear results after adding
-    // setResults([]);
-    // setQuery('');
+  };
+
+  const instantPlay = (video: any) => {
+    const videoUrl = `https://www.youtube.com/watch?v=${video.id.videoId}`;
+    syncRoom(roomId, { url: videoUrl, playing: true, seekTime: 0 });
   };
 
   return (
@@ -79,18 +81,27 @@ const Search: React.FC<SearchProps> = ({ roomId, queue = [] }) => {
           <p className="text-center text-slate-500 py-4 text-xs">Search for music to add to queue</p>
         )}
         {results.map((video) => (
-          <div key={video.id.videoId} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/10">
-            <img 
-              src={video.snippet.thumbnails.default.url} 
-              alt="" 
-              className="w-16 h-10 rounded-lg object-cover"
-            />
+          <div 
+            key={video.id.videoId} 
+            onClick={() => instantPlay(video)}
+            className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/10 cursor-pointer group"
+          >
+            <div className="relative overflow-hidden rounded-lg">
+                <img 
+                src={video.snippet.thumbnails.default.url} 
+                alt="" 
+                className="w-16 h-10 object-cover"
+                />
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Play size={16} fill="white" className="text-white" />
+                </div>
+            </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-xs text-slate-200 truncate font-medium" dangerouslySetInnerHTML={{ __html: video.snippet.title }} />
               <p className="text-[10px] text-slate-500">{video.snippet.channelTitle}</p>
             </div>
             <button 
-              onClick={() => addToQueue(video)}
+              onClick={(e) => { e.stopPropagation(); addToQueue(video); }}
               className="p-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white transition-all"
             >
               <Plus size={16} />
