@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sendMessage, db, ref, onValue, update } from '../firebase';
-import { Send, MessageSquare } from 'lucide-react';
+import { sendMessage, db, ref, onValue, update, toggleReaction } from '../firebase';
+import { Send, MessageSquare, Plus } from 'lucide-react';
 
 interface ChatProps {
   roomId: string;
@@ -9,11 +9,40 @@ interface ChatProps {
   sessionId: string;
 }
 
+const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '🔥'];
+const ALL_EMOJIS = [
+  // Smileys & Emotion
+  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊', '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🤎', '🖤', '🤍', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤',
+  // Hand gestures
+  '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦵', '🦿', '🦶', '👂', '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁️', '👅', '👄',
+  // Animals & Nature
+  '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🦍', '🦧', '🐶', '🐕', '🦮', '🐕‍🦺', '🐩', '🐺', '🦊', '🦝', '🐱', '🐈', '🦁', '🐯', '🐅', '🐆', '🐴', '🐎', '🦄', '🦓', '🦌', '🐮', '🐂', '🐃', '🐄', '🐷', '🐖', '🐗', '🐽', '🐏', '🐑', '🐐', '🐪', '🐫', '🦙', '🦒', '🐘', '🦏', '🦛', '🐭', '🐁', '🐀', '🐹', '🐰', '🐇', '🐿️', '🦔', '🦇', '🐻', '🐨', '🐼', '🦥', '🦦', '🦨', '🦘', '🦡', '🐾', '🦃', '🐔', '🐓', '🐣', '🐤', '🐥', '🐦', '🐧', '🕊️', '🦅', '🦆', '🦢', '🦉', '🦩', '🦚', '🦜', '🐸', '🐊', '🐢', '🦎', '🐍', '🐲', '🐉', '🦕', '🦖', '🐳', '🐋', '🐬', '🐟', '🐠', '🐡', '🦈', '🐙', '🐚', '🐌', '🦋', '🐛', '🐜', '🐝', '🐞', '🦗', '🕷️', '🕸️', '🦂', '🦟', '🦠', '💐', '🌸', '💮', '🏵️', '🌹', '🥀', '🌺', '🌻', '🌼', '🌷', '🌱', '🌲', '🌳', '🌴', '🌵', '🌾', '🌿', '☘️', '🍀', '🍁', '🍂', '🍃',
+  // Food & Drink
+  '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🌮', '🌯', '🥗', '🥘', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '☕', '🍵', '🧉', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾', '🧊', '🥤', '🧃', '🧉',
+  // Activities
+  '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🎱', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '⛳', '🏹', '🎣', '🤿', '🥊', '🥋', '⛸️', '🎿', '🛷', '🥌', '🎯', '🪀', '🪁', '🔮', '🧿', '🎮', '🕹️', '🎰', '🎲', '🧩', '🧸', '♠️', '♥️', '♦️', '♣️', '♟️', '🃏', '🀄', '🎴', '🎭', '🖼️', '🎨', '🧵', '🧶',
+  // Objects
+  '⌚', '📱', '📲', '💻', '⌨️', '🖱️', '🖲️', '🕹️', '🗜️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️', '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯️', '🪔', '🧯', '🛢️', '💸', '💵', '💴', '💶', '💷', '💰', '💳', '💎', '⚖️', '🧰', '🔧', '🔨', '⚒️', '🛠️', '⛏️', '🔩', '⚙️', '🧱', '⛓️', '🧲', '🔫', '💣', '🧨', '🪓', '🔪', '🗡️', '⚔️', '🛡️', '🚬', '⚰️', '⚱️', '🏺', '🔮', '📿', '🧿', '💈', '⚗️', '🔭', '🔬', '🕳️', '🩹', '🩺', '💊', '💉', '🩸', '🧬', '🦠', '🧫', '🧪', '🌡️', '🧹', '🧺', '🧻', '🚽', '🚰', '🚿', '🛁', '🛀', '🧼', '🪒', '🧽', '🧴', '🛎️', '🔑', '🗝️', '🚪', '🪑', '🛋️', '🛏️', '🛌', '🧸', '🖼️', '🛍️', '🛒', '🎁', '🎈', '🎏', '🎀', '🎊', '🎉', '🎎', '🏮', '🎐', '🧧', '✉️', '📩', '📨', '📧', '💌', '📥', '📤', '📦', '🏷️', '📁', '📂', '📅', '📆', '🗓️', '📊', '📈', '📉', '📋', '📌', '📍', '📎', '🖇️', '📏', '📐', '✂️', '🗃️', '🗄️', '🗑️', '🔒', '🔓', '🔏', '🔐', '🔑', '🗝️', '🔨', '⛏️', '⚒️', '🛠️', '🗡️', '⚔️', '🔫', '🏹', '🛡️', '🔧', '🔩', '⚙️', '🗜️', '⚖️', '🦯', '🔗', '⛓️', '🧰', '🧲', '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '💉', '🩸', '💊', '🩹', '🩺', '🚪', '🛏️', '🛋️', '🪑', '🚽', '🚿', '🛁', '🪒', '🧴', '🧷', '🧹', '🧺', '🧻', '🧼', '🧽', '🧯', '🛒', '🚬', '⚰️', '⚱️', '🗿'
+];
+
 const Chat: React.FC<ChatProps> = ({ roomId, username, messages, sessionId }) => {
   const [input, setInput] = useState('');
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
+  const [activeEmojiPicker, setActiveEmojiPicker] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<any | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setActiveEmojiPicker(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -72,6 +101,42 @@ const Chat: React.FC<ChatProps> = ({ roomId, username, messages, sessionId }) =>
     }
   };
 
+  const handleReaction = (messageId: string, messageUser: string, emoji: string) => {
+    // Disable reaction on own messages
+    if (messageUser === username) return;
+    toggleReaction(roomId, messageId, username, emoji);
+  };
+
+  const renderReactions = (reactions: any, messageId: string, messageUser: string) => {
+    if (!reactions) return null;
+    
+    const reactionCounts: Record<string, number> = {};
+    Object.values(reactions).forEach((emoji: any) => {
+      reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
+    });
+
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {Object.entries(reactionCounts).map(([emoji, count]) => (
+          <div 
+            key={emoji} 
+            className={`flex items-center bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded-full text-[10px] transition-colors border border-white/5 ${
+              messageUser !== username ? 'cursor-pointer' : 'cursor-default'
+            }`}
+            onClick={() => {
+              if (messageUser !== username) {
+                handleReaction(messageId, messageUser, emoji);
+              }
+            }}
+          >
+            <span>{emoji}</span>
+            <span className="ml-1 text-slate-400">{count}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-[400px] w-full lg:w-80 glass rounded-3xl overflow-hidden shadow-2xl">
       <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-2">
@@ -90,13 +155,75 @@ const Chat: React.FC<ChatProps> = ({ roomId, username, messages, sessionId }) =>
           </div>
         )}
         {messages.map((msg, i) => (
-          <div key={i} className={`flex flex-col ${msg.user === username ? 'items-end' : 'items-start'}`}>
+          <div 
+            key={msg.id || i} 
+            className={`flex flex-col ${msg.user === username ? 'items-end' : 'items-start'} relative group`}
+            onMouseEnter={() => msg.user !== username && setHoveredMessage(msg.id)}
+            onMouseLeave={() => setHoveredMessage(null)}
+          >
             <span className="text-[10px] font-bold text-slate-500 mb-1 ml-1 mr-1 uppercase tracking-tighter">{msg.user}</span>
-            <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm ${
-              msg.user === username ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white/10 text-slate-200 rounded-tl-none'
-            }`}>
-              {msg.text}
+            <div className="relative max-w-[85%]">
+              <div 
+                onDoubleClick={() => handleReaction(msg.id, msg.user, '❤️')}
+                className={`px-4 py-2 rounded-2xl text-sm shadow-sm transition-transform active:scale-[0.98] ${
+                  msg.user === username ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white/10 text-slate-200 rounded-tl-none cursor-pointer'
+                }`}
+              >
+                {msg.text}
+              </div>
+              
+              {/* Emoji Picker on Hover (only for others' messages) */}
+              {hoveredMessage === msg.id && msg.user !== username && (
+                <div className={`absolute -top-8 ${msg.user === username ? 'right-0' : 'left-0'} flex items-center gap-1 bg-[#1a1a1e] border border-white/10 p-1 rounded-full shadow-xl z-10 animate-in fade-in zoom-in duration-200`}>
+                  {REACTION_EMOJIS.map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => handleReaction(msg.id, msg.user, emoji)}
+                      className="hover:scale-125 transition-transform px-1 text-sm"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <div className="w-[1px] h-3 bg-white/10 mx-0.5" />
+                  <button 
+                    className={`p-1 hover:bg-white/5 rounded-full transition-colors ${activeEmojiPicker === msg.id ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveEmojiPicker(activeEmojiPicker === msg.id ? null : msg.id);
+                    }}
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+              )}
+
+              {/* Full Emoji Picker Tab */}
+              {activeEmojiPicker === msg.id && (
+                <div 
+                  ref={pickerRef}
+                  className={`absolute -top-48 ${msg.user === username ? 'right-0' : 'left-0'} w-56 bg-[#1a1a1e]/95 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl z-20 animate-in fade-in slide-in-from-bottom-2 duration-200`}
+                >
+                  <div className="h-40 overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="grid grid-cols-6 gap-1">
+                      {ALL_EMOJIS.map((emoji, index) => (
+                        <button
+                          key={`${emoji}-${index}`}
+                          onClick={() => {
+                            handleReaction(msg.id, msg.user, emoji);
+                            setActiveEmojiPicker(null);
+                          }}
+                          className="hover:bg-white/10 p-1.5 rounded-lg transition-all text-lg hover:scale-120 active:scale-90"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+            
+            {renderReactions(msg.reactions, msg.id, msg.user)}
           </div>
         ))}
         {typingUsers.length > 0 && (

@@ -1,9 +1,9 @@
 {
-  "name": "syncvibe",
+  "name": "vibes",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://YOUR_GITHUB_USERNAME.github.io/syncvibe",
+  "homepage": "https://mehakpb19.github.io/vibes",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

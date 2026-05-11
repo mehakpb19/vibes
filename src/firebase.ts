@@ -46,3 +46,17 @@ export const sendMessage = (roomId: string, message: { text: string; user: strin
     timestamp: serverTimestamp()
   }).catch(err => console.error("Firebase Send Error:", err));
 };
+
+export const toggleReaction = (roomId: string, messageId: string, username: string, emoji: string) => {
+  const reactionRef = ref(db, `rooms/${roomId}/chat/${messageId}/reactions/${username}`);
+  
+  // Get current reaction to toggle it
+  onValue(reactionRef, (snapshot) => {
+    const currentEmoji = snapshot.val();
+    if (currentEmoji === emoji) {
+      remove(reactionRef);
+    } else {
+      set(reactionRef, emoji);
+    }
+  }, { onlyOnce: true });
+};

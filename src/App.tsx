@@ -79,7 +79,11 @@ const App: React.FC = () => {
       const unsubscribeChat = onValue(chatRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          setMessages(Object.values(data));
+          const messagesList = Object.entries(data).map(([id, msg]: [string, any]) => ({
+            ...msg,
+            id
+          }));
+          setMessages(messagesList);
         } else {
           setMessages([]);
         }
