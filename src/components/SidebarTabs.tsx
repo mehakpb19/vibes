@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search as SearchIcon, ListMusic, Plus, Play, Loader2, X, Shuffle, ListPlus } from 'lucide-react';
+import { Search as SearchIcon, ListMusic, Plus, Play, Loader2, X, Shuffle, ListPlus, User } from 'lucide-react';
 import { syncRoom, YOUTUBE_API_KEY } from '../firebase';
+import { MY_PLAYLIST_DATA } from '../myPlaylistData';
 
 interface SidebarTabsProps {
   roomId: string;
@@ -8,7 +9,7 @@ interface SidebarTabsProps {
 }
 
 const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [] }) => {
-  const [activeTab, setActiveTab] = useState<'search' | 'queue'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'queue' | 'myplaylist'>('search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,25 +48,45 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [] }) => {
     }
   };
 
-  const addToQueue = (video: any, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent playing when adding to queue
-    const videoUrl = `https://www.youtube.com/watch?v=${video.id.videoId}`;
+  const addToQueue = (videoOrItem: any, e?: React.MouseEvent) => {
+    e?.stopPropagation(); 
+    let videoUrl = '';
+    let title = '';
+    let thumbnail = '';
+
+    if (videoOrItem.id && typeof videoOrItem.id === 'string') {
+        // From MY_PLAYLIST_DATA
+        videoUrl = `https://www.youtube.com/watch?v=${videoOrItem.id}`;
+        title = videoOrItem.title;
+        thumbnail = `https://img.youtube.com/vi/${videoOrItem.id}/default.jpg`;
+    } else {
+        // From Search API
+        videoUrl = `https://www.youtube.com/watch?v=${videoOrItem.id.videoId}`;
+        title = videoOrItem.snippet.title;
+        thumbnail = videoOrItem.snippet.thumbnails.default.url;
+    }
+
     const newItem = { 
       url: videoUrl, 
       id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-      title: video.snippet.title,
-      thumbnail: video.snippet.thumbnails.default.url
+      title: title,
+      thumbnail: thumbnail
     };
-    syncRoom(roomId, { queue: [...queue, newItem], loop: false }); // Disable loop when adding/playing new
+    syncRoom(roomId, { queue: [...queue, newItem], loop: false });
   };
 
-  const instantPlay = (video: any) => {
-    const videoUrl = `https://www.youtube.com/watch?v=${video.id.videoId}`;
+  const instantPlay = (videoOrItem: any) => {
+    let videoUrl = '';
+    if (videoOrItem.id && typeof videoOrItem.id === 'string') {
+        videoUrl = `https://www.youtube.com/watch?v=${videoOrItem.id}`;
+    } else {
+        videoUrl = `https://www.youtube.com/watch?v=${videoOrItem.id.videoId}`;
+    }
     syncRoom(roomId, { 
       url: videoUrl, 
       playing: true, 
       seekTime: 0,
-      loop: false // Disable loop for new video
+      loop: false
     });
   };
 
@@ -119,31 +140,39 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [] }) => {
   };
 
   const removeFromQueue = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent playing when removing
+    e.stopPropagation(); 
     const updatedQueue = queue.filter(item => item.id !== id);
     syncRoom(roomId, { queue: updatedQueue });
   };
 
   return (
     <div className="glass rounded-3xl flex flex-col overflow-hidden h-[500px]">
-      {/* Tabs Header - Search First, Queue Second */}
-      <div className="flex p-2 bg-white/5 border-b border-white/10">
+      <div className="flex p-2 bg-white/5 border-b border-white/10 gap-1">
         <button
           onClick={() => setActiveTab('search')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-bold transition-all ${
             activeTab === 'search' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <SearchIcon size={18} />
+          <SearchIcon size={14} />
           Search
         </button>
         <button
+          onClick={() => setActiveTab('myplaylist')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-bold transition-all ${
+            activeTab === 'myplaylist' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <User size={14} />
+          My Playlist
+        </button>
+        <button
           onClick={() => setActiveTab('queue')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-bold transition-all ${
             activeTab === 'queue' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <ListMusic size={18} />
+          <ListMusic size={14} />
           Queue ({queue.length})
         </button>
       </div>
@@ -214,7 +243,7 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [] }) => {
               </button>
             </form>
           </>
-        ) : (
+        ) : activeTab === 'search' ? (
           <>
             <div className="p-4 border-b border-white/10 bg-white/5 relative">
               <input
@@ -271,6 +300,41 @@ const SidebarTabs: React.FC<SidebarTabsProps> = ({ roomId, queue = [] }) => {
               )}
             </div>
           </>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
+            <div className="px-2 py-1 mb-2 border-b border-white/5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">My Playlist ({MY_PLAYLIST_DATA.length} songs)</span>
+            </div>
+            {MY_PLAYLIST_DATA.map((item, index) => (
+              <div 
+                  key={`${item.id}-${index}`} 
+                  onClick={() => instantPlay(item)}
+                  className="flex items-center gap-3 p-2 rounded-2xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group cursor-pointer"
+              >
+                <div className="relative overflow-hidden rounded-lg shrink-0">
+                  <img 
+                    src={`https://img.youtube.com/vi/${item.id}/default.jpg`} 
+                    alt="" 
+                    className="w-20 h-12 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Play size={20} fill="white" className="text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-[13px] text-slate-200 truncate font-bold leading-tight">{item.title}</p>
+                  <p className="text-[10px] text-slate-500">{item.artist}</p>
+                </div>
+                <button 
+                  onClick={(e) => addToQueue(item, e)}
+                  title="Add to Queue"
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/20 text-slate-400 hover:text-white transition-all shrink-0"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
